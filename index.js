@@ -34,6 +34,10 @@ const es = new elasticsearch.Client({
 	host: config.es.host
 });
 
+const esOld = new elasticsearch.Client({
+	host: config.esOld.host
+});
+
 const s3 = new AWS.S3(config.s3);
 
 async function esIndex(data) {
@@ -42,30 +46,51 @@ async function esIndex(data) {
 	// Key is not needed
 	data.key = undefined;
 	
-	let params = {
-		index: config.es.index,
-		type: config.es.type,
+	try {
+		await es.index({
+			index: config.es.index,
+			type: config.es.type,
+			id: id,
+			version: data.version,
+			version_type: 'external_gt',
+			routing: data.libraryID,
+			body: data
+		});
+	}
+	catch (err) {
+		// Ignore 'version_conflict_engine_exception'
+		if (err.status !== 409) {
+			throw err;
+		}
+	}
+	
+	// Old ES index
+	await esOld.index({
+		index: config.esOld.index,
+		type: config.esOld.type,
 		id: id,
-		// From ES 2.0 'routing' must be provided with a query, not mapping
 		routing: data.libraryID,
 		body: data
-	};
-	
-	await es.index(params);
+	});
 }
 
 async function esDelete(libraryID, key) {
 	let id = libraryID + '/' + key;
 	
-	let params = {
+	await es.delete({
 		index: config.es.index,
 		type: config.es.type,
 		id: id,
-		// From ES 2.0 'routing' must be provided with a query, not mapping
 		routing: libraryID,
-	};
+	});
 	
-	await es.delete(params);
+	// Old ES index
+	await esOld.delete({
+		index: config.esOld.index,
+		type: config.esOld.type,
+		id: id,
+		routing: libraryID,
+	});
 }
 
 async function processEvent(event) {

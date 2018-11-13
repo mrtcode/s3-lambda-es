@@ -8,5 +8,10 @@ module.exports = {
 		host: '',
 		index: 'item_fulltext_index_write',
 		type: 'item_fulltext'
+	},
+	esOld: {
+		host: '',
+		index: 'item_fulltext_index_write',
+		type: 'item_fulltext'
 	}
 };
